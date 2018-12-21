@@ -1,0 +1,10 @@
+{
+  "Name": "StarMoonValley",
+  "Author": "Pucklynn",
+  "Version": "2.1.0",
+  "Description": "A mod that adds a moon",
+  "UniqueID": "shannon.StarMoonValley",
+  "EntryDll": "StarMoonValley.dll",
+  "MinimumApiVersion": "2.0",
+  "UpdateKeys": [ "Nexus:2482"]
+}
