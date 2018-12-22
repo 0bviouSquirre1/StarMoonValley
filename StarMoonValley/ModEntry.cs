@@ -31,10 +31,13 @@ namespace StarMoonValley
             moon.Monitor = Monitor;
             Monitor.Log("Mod loaded!", LogLevel.Trace);
             // tell the moon to do stuff based on alerts received
-            Helper.Events.GameLoop.SaveLoaded += Events_SaveLoaded;
-            Helper.Events.GameLoop.TimeChanged += Events_TimeChanged;
-            Helper.Events.GameLoop.Saving += Events_Saving;
-            Helper.Events.GameLoop.ReturnedToTitle += Events_ReturnedToTitle;
+            Helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
+            Helper.Events.GameLoop.TimeChanged += OnTimeChanged;
+            Helper.Events.GameLoop.Saving += OnSaving;
+            Helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
+
+            // for adding objects to Pierre's shop menu
+            Helper.Events.Display.MenuChanged += OnMenuChanged;
 
             // these are for the lunar calendar overlay
             Helper.Events.Display.Rendering += Events_Rendering;
@@ -49,6 +52,28 @@ namespace StarMoonValley
             if (asset.AssetNameEquals("Data/Fish"))
             {
                 Monitor.Log("CanEdit() called on Fish.xnb", LogLevel.Trace);
+                return true;
+            }
+
+            // adds new crops to the game
+            if (asset.AssetNameEquals("Data/Crops"))
+            {
+                Monitor.Log("CanEdit() called on Data/Crops.xnb", LogLevel.Trace);
+                return true;
+            }
+            if (asset.AssetNameEquals("Data/ObjectInformation"))
+            {
+                Monitor.Log("CanEdit() called on Data/ObjectInformation.xnb", LogLevel.Trace);
+                return true;
+            }
+            if (asset.AssetNameEquals("TileSheets/Crops"))
+            {
+                Monitor.Log("CanEdit() called on Tilesheets/Crops.xnb", LogLevel.Trace);
+                return true;
+            }
+            if (asset.AssetNameEquals("Maps/SpringObjects"))
+            {
+                Monitor.Log("CanEdit() called on Maps/SpringObjects.xnb", LogLevel.Trace);
                 return true;
             }
 
@@ -72,7 +97,7 @@ namespace StarMoonValley
                         fish[132] = "Bream/35/smooth/12/30/1800 2600/spring summer fall winter/both/684 .35/1/.57/.1/0"; // 0.45 -> 0.57
                         fish[717] = "Crab/trap/.005/684 .45/ocean/1/20"; // 0.1 -> 0.005
                         Monitor.Log("Fish.xnb called during the new moon. 2 fish affected.", LogLevel.Trace);
-                        break;
+                        break; 
                     case 1: // waxing moon
                         Monitor.Log("Fish.xnb called during the waxing moon. 0 fish affected.", LogLevel.Trace);
                         break;
@@ -89,6 +114,45 @@ namespace StarMoonValley
                         break;
                 }
             }
+
+            // adding new crops to the game
+            if (asset.AssetNameEquals("Data/Crops"))
+            {
+                Monitor.Log("Edit() called on Data/Crops.xnb", LogLevel.Trace);
+                IDictionary<int, string> crops = asset.AsDictionary<int, string>().Data;
+
+                // add row for each crop, references growing sprites and object sprite
+                crops.Add(806, "1 2 2 2 1/spring summer fall/42/805/3/1/false/false/false");
+            }
+
+            // adding new objects to the game (crops and seeds)
+            if (asset.AssetNameEquals("Data/ObjectInformation"))
+            {
+                Monitor.Log("Edit() called on Data/ObjectInformation.xnb", LogLevel.Trace);
+                IDictionary<int, string> objInfo = asset.AsDictionary<int, string>().Data;
+
+                // add row for each object (keep crops and seeds together, please)
+                objInfo.Add(805, "Mugwort/50/10/Basic -75/Mugwort/An aromatic herb./food/0 0 0 0 0 0 0 0 0 0 0/0");
+                objInfo.Add(806, "Mugwort Seeds/10/0/Seeds -74/Mugwort Seeds/Mugwort seeds.");
+            }
+
+            // loads and replaces crop growth sprites
+            if (asset.AssetNameEquals("TileSheets/Crops"))
+            {
+                Monitor.Log("Edit() called on TileSheets/Crops.xnb", LogLevel.Trace);
+                Texture2D oldCrops = asset.AsImage().Data;
+                Texture2D newCrops = Helper.Content.Load<Texture2D>("assets/mugwort-crops.png", ContentSource.ModFolder);
+                asset.ReplaceWith(newCrops); // swap assets
+            }
+
+            // adding icons for new objects
+            if (asset.AssetNameEquals("Maps/SpringObjects"))
+            {
+                Monitor.Log("Edit() called on Maps/SpringObjects.xnb", LogLevel.Trace);
+                Texture2D springObj = asset.AsImage().Data;
+                Texture2D newObj = Helper.Content.Load<Texture2D>("assets/springobjects.png", ContentSource.ModFolder);
+                asset.ReplaceWith(newObj); // swap assets
+            }
         } // needs work
         #endregion
 
@@ -96,7 +160,7 @@ namespace StarMoonValley
          * Private Methods *
          * *************** */
 
-        private void Events_SaveLoaded(object sender, EventArgs e)
+        private void OnSaveLoaded(object sender, EventArgs e)
         {
             // read file
             model = Helper.ReadJsonFile<ModData>($"data/{Constants.SaveFolderName}.json");
@@ -128,7 +192,7 @@ namespace StarMoonValley
             moon.CalculateCalendar(moon.FirstCycle);
         }
 
-        private void Events_TimeChanged(object sender, EventArgs e)
+        private void OnTimeChanged(object sender, EventArgs e)
         {
             if (Game1.timeOfDay == 1800)
             {
@@ -138,7 +202,7 @@ namespace StarMoonValley
             }
         }
 
-        private void Events_Saving(object sender, EventArgs e)
+        private void OnSaving(object sender, EventArgs e)
         {
             if (!moon.HasChanged)
             {
@@ -156,7 +220,7 @@ namespace StarMoonValley
             Helper.WriteJsonFile($"data/{Constants.SaveFolderName}.json", model);
         }
 
-        private void Events_ReturnedToTitle(object sender, EventArgs e)
+        private void OnReturnedToTitle(object sender, EventArgs e)
         {
             moon.Cycle = 0;
             moon.Phase = 0;
@@ -164,6 +228,22 @@ namespace StarMoonValley
             moon.HasChanged = false;
             moon.FirstCycle = 0;
             Monitor.Log($"Gone to Title Screen. Current variables are: {moon.Cycle} - {moon.Phase} - {moon.PhaseName} - {moon.HasChanged} - {moon.FirstCycle}", LogLevel.Trace);
+        }
+
+        private void OnMenuChanged(object sender, MenuChangedEventArgs e)
+        {
+            if (e.NewMenu is ShopMenu)
+            {
+                IClickableMenu menu = e.NewMenu;
+                IList<Item> forSale = Helper.Reflection.GetField<List<Item>>(menu, "forSale").GetValue();
+                IDictionary<Item, int[]> itemPriceAndStock = Helper.Reflection.GetField<Dictionary<Item, int[]>>(menu, "itemPriceAndStock").GetValue(); // this gathers the current menu @ Pierre's
+
+                // add items here
+                StardewValley.Object item = new StardewValley.Object(Vector2.Zero, 806, int.MaxValue); // calls ObjectInformation.xnb on mugwort seeds
+                int price = 50;
+                forSale.Add(item);
+                itemPriceAndStock.Add(item, new int[] { price, int.MaxValue }); // price, quantity available
+            }
         }
 
         #region Lunar Calendar events
@@ -184,6 +264,7 @@ namespace StarMoonValley
                 IReflectedField<string> privateField = this.Helper.Reflection.GetField<string>(menu, "hoverText");
                 string hoverText = privateField.GetValue();
                 #endregion
+
                 if (calendarDays != null && !(hoverText.Contains("Moon") || hoverText.Contains("moon")))
                 {
                     for (int day = 1; day <= 28; day++)
@@ -235,7 +316,8 @@ namespace StarMoonValley
 
                     if (moon.LunarCalendar[day] >= 0 && moon.LunarCalendar[day] <= 3)
                     {
-                        const int id = 339; // id for purple mushroom
+                        // insert loop that changes id based on phase
+                        const int id = 339; // id for moon, 339 = full
                         Rectangle source = GameLocation.getSourceRectForObject(id);
                         Vector2 dest = new Vector2(component.bounds.X, component.bounds.Y + 10f * Game1.pixelZoom);
                         b.Draw(Game1.objectSpriteSheet, dest, new Rectangle?(source), Color.White, 0.0f, Vector2.Zero, Game1.pixelZoom / 2f, SpriteEffects.None, 1f);
